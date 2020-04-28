@@ -6,11 +6,12 @@
 
 ## Bird eye's view for CARLA
 
-![](cruising.gif)
-![](square-cruising.gif)
+(GIFs below present feature maps after applying RGB conversion)
+Freeway-oriented shape | *Learning By Cheating*-like shape
+:-------------------------:|:-------------------------:
+![cruising](https://user-images.githubusercontent.com/64484917/80508193-04edde00-8978-11ea-956d-721e50a6a3c9.gif) | ![square-cruising](https://user-images.githubusercontent.com/64484917/80508095-e4258880-8977-11ea-8601-0e88942711ff.gif)
 
 ### Features
-
 - **one-hot 3D feature map** (8x2D layers, each representing other entities, e.g. road layer, pedestrians layer) - made specifically to feed your CNN
 - road and lane layers caching mechanism
 - feature map **can be converted to an RGB** image
@@ -25,6 +26,8 @@ pip install carla-birdview
 ```
 
 ### How to run
+
+Make sure that PYTHONPATH env variable contains CARLA dist egg
 ```bash
 # Launch server instance
 ./CarlaUE4.sh
