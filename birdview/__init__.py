@@ -1,0 +1,283 @@
+import carla
+import logging
+import numpy as np
+
+from enum import IntEnum
+from pathlib import Path
+from typing import List
+from filelock import FileLock
+
+from birdview import actors, cache
+from birdview.actors import SegregatedActors
+from birdview.colors import RGB
+from birdview.mask import (
+    PixelDimensions,
+    Coord,
+    CroppingRect,
+    MapMaskGenerator,
+    Mask,
+    COLOR_ON,
+    RenderingWindow,
+    Dimensions,
+)
+
+LOGGER = logging.getLogger(__name__)
+
+DEFAULT_HEIGHT = 336  # its 84m when density is 4px/m
+DEFAULT_WIDTH = 150  # its 37.5m when density is 4px/m
+
+BirdView = np.ndarray  # [np.uint8] with shape (level, y, x)
+RgbCanvas = np.ndarray  # [np.uint8] with shape (y, x, 3)
+
+
+class BirdViewMasks(IntEnum):
+    PEDESTRIANS = 7
+    RED_LIGHTS = 6
+    YELLOW_LIGHTS = 5
+    GREEN_LIGHTS = 4
+    AGENT = 3
+    VEHICLES = 2
+    LANES = 1
+    ROAD = 0
+
+    @staticmethod
+    def top_to_bottom() -> List[int]:
+        return list(BirdViewMasks)
+
+    @staticmethod
+    def bottom_to_top() -> List[int]:
+        return list(reversed(BirdViewMasks.top_to_bottom()))
+
+
+RGB_BY_MASK = {
+    BirdViewMasks.PEDESTRIANS: RGB.VIOLET,
+    BirdViewMasks.RED_LIGHTS: RGB.RED,
+    BirdViewMasks.YELLOW_LIGHTS: RGB.YELLOW,
+    BirdViewMasks.GREEN_LIGHTS: RGB.GREEN,
+    BirdViewMasks.AGENT: RGB.CHAMELEON,
+    BirdViewMasks.VEHICLES: RGB.ORANGE,
+    BirdViewMasks.LANES: RGB.WHITE,
+    BirdViewMasks.ROAD: RGB.DIM_GRAY,
+}
+
+BIRDVIEW_SHAPE_CHW = (len(RGB_BY_MASK), DEFAULT_HEIGHT, DEFAULT_WIDTH)
+BIRDVIEW_SHAPE_HWC = (DEFAULT_HEIGHT, DEFAULT_WIDTH, len(RGB_BY_MASK))
+
+import cv2.cv2 as cv2
+
+
+def rotate(image, angle, center=None, scale=1.0):
+    assert image.dtype == np.uint8
+
+    """Copy paste of imutils method but with INTER_NEAREST and BORDER_CONSTANT flags"""
+    # grab the dimensions of the image
+    (h, w) = image.shape[:2]
+
+    # if the center is None, initialize it as the center of
+    # the image
+    if center is None:
+        center = (w // 2, h // 2)
+
+    # perform the rotation
+    M = cv2.getRotationMatrix2D(center, angle, scale)
+    rotated = cv2.warpAffine(
+        image,
+        M,
+        (w, h),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+
+    # return the rotated image
+    return rotated
+
+
+def circle_circumscribed_around_rectangle(rect_size: Dimensions) -> float:
+    """Returns radius of that circle."""
+    a = rect_size.width / 2
+    b = rect_size.height / 2
+    return float(np.sqrt(np.power(a, 2) + np.power(b, 2)))
+
+
+def square_fitting_rect_at_any_rotation(rect_size: Dimensions) -> float:
+    """Preview: https://pasteboard.co/J1XK62H.png"""
+    radius = circle_circumscribed_around_rectangle(rect_size)
+    side_length_of_square_circumscribed_around_circle = radius * 2
+    return side_length_of_square_circumscribed_around_circle
+
+
+class BirdViewProducer:
+    """Responsible for producing top-down view on the map, following agent's vehicle.
+
+    About BirdView:
+    - top-down view, fixed directly above the agent (including vehicle rotation), cropped to desired size
+    - consists of stacked layers (masks), each filled with ones and zeros (depends on MaskMaskGenerator implementation).
+        Example layers: road, vehicles, pedestrians. 0 indicates -> no presence in that pixel, 1 -> presence
+    - convertible to RGB image
+    - Rendering full road and lanes masks is computationally expensive, hence caching mechanism is used
+    """
+
+    def __init__(
+        self,
+        client: carla.Client,
+        target_size: PixelDimensions,
+        pixels_per_meter: int = 4,
+    ) -> None:
+        self.client = client
+        self.target_size = target_size
+        self.pixels_per_meter = pixels_per_meter
+
+        rendering_square_size = round(square_fitting_rect_at_any_rotation(target_size))
+        self.rendering_area = PixelDimensions(
+            width=rendering_square_size, height=rendering_square_size
+        )
+        self._world = client.get_world()
+        self._map = self._world.get_map()
+        self.masks_generator = MapMaskGenerator(
+            client, pixels_per_meter=pixels_per_meter
+        )
+
+        cache_path = self.parametrized_cache_path()
+        if Path(cache_path).is_file():
+            LOGGER.info(f"Loading cache from {cache_path}")
+            with FileLock(f"{cache_path}.lock"):
+                static_cache = np.load(cache_path)
+                self.full_road_cache = static_cache[0]
+                self.full_lanes_cache = static_cache[1]
+            LOGGER.info(f"Loaded static layers from cache file: {cache_path}")
+        else:
+            LOGGER.warning(
+                f"Cache file does not exist, generating cache at {cache_path}"
+            )
+            self.full_road_cache = self.masks_generator.road_mask()
+            self.full_lanes_cache = self.masks_generator.lanes_mask()
+            static_cache = np.stack([self.full_road_cache, self.full_lanes_cache])
+            with FileLock(f"{cache_path}.lock"):
+                np.save(cache_path, static_cache, allow_pickle=False)
+            LOGGER.info(f"Saved static layers to cache file: {cache_path}")
+
+    def parametrized_cache_path(self) -> str:
+        cache_dir = Path("birdview_v2_cache")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        opendrive_content_hash = cache.generate_opendrive_content_hash(self._map)
+        cache_filename = (
+            f"{self._map.name}__"
+            f"px_per_meter={self.pixels_per_meter}__"
+            f"opendrive_hash={opendrive_content_hash}__"
+            f"margin={mask.MAP_BOUNDARY_MARGIN}.npy"
+        )
+        return str(cache_dir / cache_filename)
+
+    def produce(self, agent_vehicle: carla.Actor) -> BirdView:
+        all_actors = actors.query_all(world=self._world)
+        segregated_actors = actors.segregate_by_type(actors=all_actors)
+        agent_vehicle_loc = agent_vehicle.get_location()
+
+        # Reusing already generated static masks for whole map
+        self.masks_generator.disable_local_rendering_mode()
+        agent_global_px_pos = self.masks_generator.location_to_pixel(agent_vehicle_loc)
+        cropping_rect = CroppingRect(
+            x=int(agent_global_px_pos.x - self.rendering_area.width / 2),
+            y=int(agent_global_px_pos.y - self.rendering_area.height / 2),
+            width=self.rendering_area.width,
+            height=self.rendering_area.height,
+        )
+
+        masks = np.zeros(
+            shape=(
+                len(BirdViewMasks),
+                self.rendering_area.height,
+                self.rendering_area.width,
+            ),
+            dtype=np.uint8,
+        )
+        masks[BirdViewMasks.ROAD.value] = self.full_road_cache[
+            cropping_rect.vslice, cropping_rect.hslice
+        ]
+        masks[BirdViewMasks.LANES.value] = self.full_lanes_cache[
+            cropping_rect.vslice, cropping_rect.hslice
+        ]
+
+        # Dynamic masks
+        rendering_window = RenderingWindow(
+            origin=agent_vehicle_loc, area=self.rendering_area
+        )
+        self.masks_generator.enable_local_rendering_mode(rendering_window)
+        masks = self._render_actors_masks(agent_vehicle, segregated_actors, masks)
+        cropped_masks = self.apply_agent_following_transformation_to_masks(
+            agent_vehicle, masks
+        )
+        ordered_indices = [mask.value for mask in BirdViewMasks.bottom_to_top()]
+        return cropped_masks[ordered_indices]
+
+    @staticmethod
+    def as_rgb(birdview: BirdView) -> RgbCanvas:
+        _, h, w = birdview.shape
+        rgb_canvas = np.zeros(shape=(h, w, 3), dtype=np.uint8)
+        nonzero_indices = lambda arr: arr == COLOR_ON
+
+        for mask_type in BirdViewMasks.bottom_to_top():
+            rgb_color = RGB_BY_MASK[mask_type]
+            mask = birdview[mask_type]
+            # If mask above contains 0, don't overwrite content of canvas (0 indicates transparency)
+            rgb_canvas[nonzero_indices(mask)] = rgb_color
+        return rgb_canvas
+
+    def _render_actors_masks(
+        self,
+        agent_vehicle: carla.Actor,
+        segregated_actors: SegregatedActors,
+        masks: np.ndarray,
+    ) -> np.ndarray:
+        """Fill masks with ones and zeros (more precisely called as "bitmask").
+        Although numpy dtype is still the same, additional semantic meaning is being added.
+        """
+        lights_masks = self.masks_generator.traffic_lights_masks(
+            segregated_actors.traffic_lights
+        )
+        red_lights_mask, yellow_lights_mask, green_lights_mask = lights_masks
+        masks[BirdViewMasks.RED_LIGHTS.value] = red_lights_mask
+        masks[BirdViewMasks.YELLOW_LIGHTS.value] = yellow_lights_mask
+        masks[BirdViewMasks.GREEN_LIGHTS.value] = green_lights_mask
+        masks[BirdViewMasks.AGENT.value] = self.masks_generator.agent_vehicle_mask(
+            agent_vehicle
+        )
+        masks[BirdViewMasks.VEHICLES.value] = self.masks_generator.vehicles_mask(
+            segregated_actors.vehicles
+        )
+        masks[BirdViewMasks.PEDESTRIANS.value] = self.masks_generator.pedestrians_mask(
+            segregated_actors.pedestrians
+        )
+        return masks
+
+    def apply_agent_following_transformation_to_masks(
+        self, agent_vehicle: carla.Actor, masks: np.ndarray
+    ) -> np.ndarray:
+        agent_transform = agent_vehicle.get_transform()
+        angle = (
+            agent_transform.rotation.yaw + 90
+        )  # vehicle's front will point to the top
+
+        # Rotating around the center
+        crop_with_car_in_the_center = masks
+        masks_n, h, w = crop_with_car_in_the_center.shape
+        rotation_center = Coord(x=w // 2, y=h // 2)
+
+        # warpAffine from OpenCV requires the first two dimensions to be in order: height, width, channels
+        crop_with_centered_car = np.transpose(
+            crop_with_car_in_the_center, axes=(1, 2, 0)
+        )
+        rotated = rotate(crop_with_centered_car, angle, center=rotation_center)
+        rotated = np.transpose(rotated, axes=(2, 0, 1))
+
+        # Fine-grained crop, so that the agent is placed on the bottom
+        half_height = self.target_size.height // 2
+        half_width = self.target_size.width // 2
+        vslice = slice(rotation_center.y - half_height, rotation_center.y + half_height)
+        hslice = slice(rotation_center.x - half_width, rotation_center.x + half_width)
+        assert (
+            vslice.start > 0 and hslice.start > 0
+        ), "Trying to access negative indexes is not allowed, check for calculation errors!"
+        car_on_the_bottom = rotated[:, vslice, hslice]
+        return car_on_the_bottom
