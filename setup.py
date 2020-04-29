@@ -15,7 +15,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/deepsense-ai/carla_birdeye_view",
     author="Michał Martyniak",
-    author_email=["michal.martyniak@linux.pl", "michal.martyniak@deepsense.ai"],
+    author_email="michal.martyniak@linux.pl",
     license="MIT",
     classifiers=[
         "License :: OSI Approved :: MIT License",
