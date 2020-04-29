@@ -1,4 +1,3 @@
-
 import carla
 import math
 import random

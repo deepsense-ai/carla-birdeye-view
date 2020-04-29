@@ -69,8 +69,8 @@ class RenderingWindow(NamedTuple):
 class MapMaskGenerator:
     """Generates 2D, top-down representations of a map.
 
-    Each mask covers whole map area. Note that layer,
-    mask, canvas are somewhat interchangeable terms for the same thing.
+    Each mask covers area specified by rendering window or whole map (when rendering window is disabled).
+    Note that layer, mask, canvas are somewhat interchangeable terms for the same thing.
 
     Rendering is implemented using OpenCV, so it can be easily adjusted
     to become a regular RGB renderer (just change all `color` arguments to 3-element tuples)

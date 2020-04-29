@@ -25,7 +25,11 @@ def draw_solid_line(canvas, color, closed, points, width):
     """Draws solid lines in a surface given a set of points, width and color"""
     if len(points) >= 2:
         cv.polylines(
-            img=canvas, pts=np.int32([points]), isClosed=closed, color=color, thickness=width
+            img=canvas,
+            pts=np.int32([points]),
+            isClosed=closed,
+            color=color,
+            thickness=width,
         )
 
 
@@ -37,12 +41,20 @@ def draw_broken_line(canvas, color, closed, points, width):
     # Draw selected lines
     for line in broken_lines:
         cv.polylines(
-            img=canvas, pts=np.int32([line]), isClosed=closed, color=color, thickness=width
+            img=canvas,
+            pts=np.int32([line]),
+            isClosed=closed,
+            color=color,
+            thickness=width,
         )
 
 
 def get_lane_markings(
-    lane_marking_type, lane_marking_color, waypoints, side: LaneSide, location_to_pixel_func
+    lane_marking_type,
+    lane_marking_color,
+    waypoints,
+    side: LaneSide,
+    location_to_pixel_func,
 ):
     """For multiple lane marking types (SolidSolid, BrokenSolid, SolidBroken and BrokenBroken),
     it converts them as a combination of Broken and Solid lines.
@@ -99,7 +111,9 @@ def draw_lane_marking_single_side(
     current_lane_marking = carla.LaneMarkingType.NONE
     for sample in waypoints:
         lane_marking = (
-            sample.left_lane_marking if side is LaneSide.LEFT else sample.right_lane_marking
+            sample.left_lane_marking
+            if side is LaneSide.LEFT
+            else sample.right_lane_marking
         )
 
         if lane_marking is None:
