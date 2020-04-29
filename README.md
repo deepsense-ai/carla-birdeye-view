@@ -1,3 +1,4 @@
+![](https://img.shields.io/badge/contributions%20welcome-forking&gt;copying-orange.svg?style=popout-square)
 ![](https://img.shields.io/badge/release-v1.0-brightgreen.svg?style=popout-square)
 ![](https://img.shields.io/badge/pypi-v1.0-brightgreen.svg?style=popout-square)
 ![](https://img.shields.io/badge/CARLA-0.9.6+-blue.svg?style=popout-square)
