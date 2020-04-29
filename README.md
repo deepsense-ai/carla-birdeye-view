@@ -33,7 +33,7 @@ This repository is an almost complete reimplementation that gives better perform
 
 ### Installation
 ```bash
-pip install carla_birdeye_view
+pip install carla-birdeye-view
 ```
 
 ### How to run
