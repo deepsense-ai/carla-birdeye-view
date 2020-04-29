@@ -1,0 +1,3 @@
+numpy==1.18.3
+filelock==3.0.12
+opencv-python==4.2.0.34
