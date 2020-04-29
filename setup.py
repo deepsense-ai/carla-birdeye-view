@@ -8,8 +8,9 @@ with open(REPO_ROOT / "requirements.txt") as f:
 
 setup(
     name="carla_birdeye_view",
-    version="1.0.0",
+    version="1.0",
     description="Bird-eye's view for CARLA simulator",
+    keywords=["CARLA", "birdview", "bird-eye's view", "Reinforcement Learning", "RL"],
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/deepsense-ai/carla_birdeye_view",
