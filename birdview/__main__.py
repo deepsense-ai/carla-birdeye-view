@@ -3,7 +3,6 @@ import math
 import random
 
 from cv2 import cv2 as cv
-import birdview
 from birdview import BirdViewProducer, BirdView
 from birdview.mask import PixelDimensions
 
@@ -18,7 +17,7 @@ def get_speed(actor: carla.Actor) -> float:
     return MPS_TO_KMH * math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2)
 
 
-if __name__ == "__main__":
+def main():
     client = carla.Client("localhost", 2000)
     client.set_timeout(3.0)
     world = client.get_world()
@@ -34,7 +33,7 @@ if __name__ == "__main__":
 
     hero_bp = random.choice(blueprints.filter("vehicle.audi.a2"))
     hero_bp.set_attribute("role_name", "hero")
-    transform = random.choice(map.get_spawn_points())
+    transform = random.choice(spawn_points)
     agent = world.spawn_actor(hero_bp, transform)
     agent.set_autopilot(True)
 
@@ -60,7 +59,7 @@ if __name__ == "__main__":
 
         if stuck_frames_count == MAX_STUCK_FRAMES:
             agent.set_autopilot(False)
-            agent.set_transform(random.choice(map.get_spawn_points()))
+            agent.set_transform(random.choice(spawn_points))
             agent.set_autopilot(True)
 
         # Play next frames without having to wait for the key
@@ -68,3 +67,7 @@ if __name__ == "__main__":
         if key == 27:  # ESC
             break
     cv.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()

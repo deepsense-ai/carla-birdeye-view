@@ -3,7 +3,7 @@ from setuptools import setup
 
 REPO_ROOT = Path(__file__).parent
 README = (REPO_ROOT / "README.md").read_text()
-with open("requirements.txt") as f:
+with open(REPO_ROOT / "requirements.txt") as f:
     REQUIREMENTS = f.read().splitlines()
 
 setup(
@@ -14,7 +14,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/deepsense-ai/carla_birdeye_view",
     author="Michał Martyniak",
-    author_email=["michal.martyniak@deepsense.ai", "michal.martyniak@linux.pl"],
+    author_email=["michal.martyniak@linux.pl", "michal.martyniak@deepsense.ai"],
     license="MIT",
     classifiers=[
         "License :: OSI Approved :: MIT License",
@@ -23,8 +23,7 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
     ],
-    packages=["reader"],
     include_package_data=True,
     install_requires=REQUIREMENTS,
-    entry_points={"console_scripts": ["birdview=birdview.__main__:main"]},
+    entry_points={"console_scripts": ["birdview-demo=birdview.__main__:main"]},
 )
