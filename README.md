@@ -5,7 +5,7 @@
 ![](https://img.shields.io/badge/python-3.6%20|%203.7%20|3.8-blue.svg?style=popout-square)
 ![](https://img.shields.io/badge/license-MIT-blue.svg?style=popout-square)
 
-## Bird eye's view for CARLA
+## Bird-eye's view for CARLA
 
 
 Freeway-oriented shape | *[Learning By Cheating](https://arxiv.org/abs/1912.12294)*-like shape
