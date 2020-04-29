@@ -33,14 +33,12 @@ Make sure that PYTHONPATH env variable contains CARLA dist egg
 # Launch server instance
 ./CarlaUE4.sh
 
-(optional) For CARLA 0.9.8+ you may get additional performance improvement with this
+# (optional) For CARLA 0.9.8+ you may get additional performance improvement with this
 python PythonAPI/util/config.py --no-rendering
 
 # Preview while cruising on autopilot (birdview/__main__.py contains demo code)
 python -m birdview
 ```
-
-
 
 ### Contribution and feedback
 We'd :heart: to collct any feedback, issues and pull requests!
