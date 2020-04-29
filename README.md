@@ -6,10 +6,19 @@
 
 ## Bird eye's view for CARLA
 
-(GIFs below present feature maps after applying RGB conversion)
-Freeway-oriented shape | *Learning By Cheating*-like shape
+
+Freeway-oriented shape | *[Learning By Cheating](https://arxiv.org/abs/1912.12294)*-like shape
 :-------------------------:|:-------------------------:
 ![cruising](https://user-images.githubusercontent.com/64484917/80508193-04edde00-8978-11ea-956d-721e50a6a3c9.gif) | ![square-cruising](https://user-images.githubusercontent.com/64484917/80508095-e4258880-8977-11ea-8601-0e88942711ff.gif)
+
+(GIFs above present feature maps after applying `as_rgb()` function)
+
+### Motivation
+
+During our [research](https://arxiv.org/abs/1911.12905) we found a very inspiring paper called [Learning By Cheating]( https://arxiv.org/abs/1912.12294). **Bird-eye's view** is made specifically to **learn faster thanks to much simpler, 2D world representation** (cheating oracle) which we think fits well in **Reinforcement Learning** setup.
+
+This repository is an almost complete reimplementation that gives better performance and compatibility with most recent versions of CARLA. You can use it out-of-the-box as input for your model, and if necessary convert and visualize into RGB.
+
 
 ### Features
 - **one-hot 3D feature map** (8x2D layers, each representing other entities, e.g. road layer, pedestrians layer) - made specifically to feed your CNN
@@ -28,7 +37,7 @@ pip install carla_birdeye_view
 
 ### How to run
 
-Make sure that PYTHONPATH env variable contains CARLA dist egg
+Make sure that `PYTHONPATH` env variable contains CARLA distribution egg, so that `carla` package can be imported.
 ```bash
 # Launch server instance
 ./CarlaUE4.sh
