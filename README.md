@@ -1,7 +1,7 @@
 ![](https://img.shields.io/badge/release-v1.0-brightgreen.svg?style=popout-square)
 ![](https://img.shields.io/badge/pypi-v1.0-brightgreen.svg?style=popout-square)
 ![](https://img.shields.io/badge/CARLA-0.9.6+-blue.svg?style=popout-square)
-![](https://img.shields.io/badge/python-3.6%20|%203.7-blue.svg?style=popout-square)
+![](https://img.shields.io/badge/python-3.6%20|%203.7%20|3.8-blue.svg?style=popout-square)
 ![](https://img.shields.io/badge/license-MIT-blue.svg?style=popout-square)
 
 ## Bird eye's view for CARLA
