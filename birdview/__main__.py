@@ -1,3 +1,4 @@
+
 import carla
 import math
 import random
@@ -7,13 +8,14 @@ import birdview
 from birdview import BirdViewProducer, BirdView
 from birdview.mask import PixelDimensions
 
-
-MPS_TO_KMH = 3.6
+STUCK_SPEED_THRESHOLD_IN_KMH = 3
+MAX_STUCK_FRAMES = 30
 
 
 def get_speed(actor: carla.Actor) -> float:
     """in km/h"""
     vector: carla.Vector3D = actor.get_velocity()
+    MPS_TO_KMH = 3.6
     return MPS_TO_KMH * math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2)
 
 
@@ -31,7 +33,7 @@ if __name__ == "__main__":
     # settings.fixed_delta_seconds = 1 / 10.0
     # world.apply_settings(settings)
 
-    hero_bp = random.choice(blueprints.filter("vehicle.ford.mustang"))
+    hero_bp = random.choice(blueprints.filter("vehicle.audi.a2"))
     hero_bp.set_attribute("role_name", "hero")
     transform = random.choice(map.get_spawn_points())
     agent = world.spawn_actor(hero_bp, transform)
@@ -46,22 +48,23 @@ if __name__ == "__main__":
 
     while True:
         # world.tick()
-        # imshow interprets data as BGR...
         birdview: BirdView = birdview_producer.produce(agent_vehicle=agent)
         bgr = cv.cvtColor(BirdViewProducer.as_rgb(birdview), cv.COLOR_BGR2RGB)
+        # NOTE imshow requires BGR color model
         cv.imshow("BirdView RGB", bgr)
 
-        # Teleport when stuck
-        if get_speed(agent) < 3:
+        # Teleport when stuck for too long
+        if get_speed(agent) < STUCK_SPEED_THRESHOLD_IN_KMH:
             stuck_frames_count += 1
         else:
             stuck_frames_count = 0
 
-        if stuck_frames_count == 20:
+        if stuck_frames_count == MAX_STUCK_FRAMES:
             agent.set_autopilot(False)
             agent.set_transform(random.choice(map.get_spawn_points()))
             agent.set_autopilot(True)
 
+        # Play next frames without having to wait for the key
         key = cv.waitKey(10) & 0xFF
         if key == 27:  # ESC
             break
