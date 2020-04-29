@@ -37,7 +37,6 @@ pip install carla_birdeye_view
 ```
 
 ### How to run
-
 Make sure that `PYTHONPATH` env variable contains CARLA distribution egg, so that `carla` package can be imported.
 ```bash
 # Launch server instance
@@ -46,9 +45,17 @@ Make sure that `PYTHONPATH` env variable contains CARLA distribution egg, so tha
 # (optional) For CARLA 0.9.8+ you may get additional performance improvement with this
 python PythonAPI/util/config.py --no-rendering
 
-# Preview while cruising on autopilot (birdview/__main__.py contains demo code)
+# Preview while cruising on autopilot (birdview/__main__.py)
+birdview-demo
+```
+
+### Development
+
+```bash
+# From repo root
 python -m birdview
 ```
+
 
 ### Contribution and feedback
 We'd :heart: to collct any feedback, issues and pull requests!
