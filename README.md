@@ -49,13 +49,25 @@ python PythonAPI/util/config.py --no-rendering
 birdview-demo
 ```
 
-### Development
+### Basic code usage
 
-```bash
-# From repo root
-python -m birdview
+```python
+from carla_birdeye_view import BirdViewProducer
+
+birdview_producer = BirdViewProducer(
+    client,
+    target_size=PixelDimensions(width=birdview.DEFAULT_WIDTH, height=birdview.DEFAULT_HEIGHT),
+    pixels_per_meter=4,
+)
+
+# Input for your model - call it every simulation step
+# returned result is np.ndarray with ones and zeros of shape (8, height, width)
+birdview = birdview_producer.produce(agent_vehicle=agent)
+
+# Use only if you want to visualize
+# produces np.ndarray of shape (height, width, 3)
+rgb = BirdViewProducer.as_rgb(birdview)
 ```
-
 
 ### Contribution and feedback
 We'd :heart: to collct any feedback, issues and pull requests!
