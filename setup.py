@@ -7,7 +7,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="carla-birdeye-view",
-    version="1.0.12",
+    version="1.0.14",
     description="Bird-eye's view for CARLA simulator",
     keywords=["CARLA", "birdview", "bird-eye's view", "Reinforcement Learning", "RL"],
     long_description=README,
@@ -23,7 +23,7 @@ setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8,"
+        "Programming Language :: Python :: 3.8"
     ],
     include_package_data=True,
     install_requires=REQUIREMENTS,

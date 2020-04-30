@@ -46,23 +46,25 @@ Make sure that `PYTHONPATH` env variable contains CARLA distribution egg, so tha
 python PythonAPI/util/config.py --no-rendering
 
 # Preview while cruising on autopilot (birdview/__main__.py)
-birdview-demo
+python -m carla_birdeye_view
 ```
 
 ### Basic code usage
 
 ```python
-from carla_birdeye_view import BirdViewProducer
+from carla_birdeye_view import BirdViewProducer, PixelDimensions
 
 birdview_producer = BirdViewProducer(
-    client,
-    target_size=PixelDimensions(width=birdview.DEFAULT_WIDTH, height=birdview.DEFAULT_HEIGHT),
+    client,  # carla.Client
+    target_size=PixelDimensions(width=150, height=336),
     pixels_per_meter=4,
 )
 
 # Input for your model - call it every simulation step
 # returned result is np.ndarray with ones and zeros of shape (8, height, width)
-birdview = birdview_producer.produce(agent_vehicle=agent)
+birdview = birdview_producer.produce(
+    agent_vehicle=agent  # carla.Actor (spawned vehicle)
+)
 
 # Use only if you want to visualize
 # produces np.ndarray of shape (height, width, 3)
