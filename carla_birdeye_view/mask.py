@@ -2,9 +2,9 @@ import carla
 import numpy as np
 
 from typing import NamedTuple, List, Tuple, Optional
-from birdview import lanes
+from carla_birdeye_view import lanes
 from cv2 import cv2 as cv
-from birdview.lanes import LaneSide
+from carla_birdeye_view.lanes import LaneSide
 
 Mask = np.ndarray  # of shape (y, x), stores 0 and 1, dtype=np.int32
 RoadSegmentWaypoints = List[carla.Waypoint]

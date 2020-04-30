@@ -3,8 +3,8 @@ import math
 import random
 
 from cv2 import cv2 as cv
-from birdview import BirdViewProducer, BirdView
-from birdview.mask import PixelDimensions
+from carla_birdeye_view import BirdViewProducer, BirdView
+from carla_birdeye_view.mask import PixelDimensions
 
 STUCK_SPEED_THRESHOLD_IN_KMH = 3
 MAX_STUCK_FRAMES = 30

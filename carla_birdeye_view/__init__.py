@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import List
 from filelock import FileLock
 
-from birdview import actors, cache
-from birdview.actors import SegregatedActors
-from birdview.colors import RGB
-from birdview.mask import (
+from carla_birdeye_view import actors, cache
+from carla_birdeye_view.actors import SegregatedActors
+from carla_birdeye_view.colors import RGB
+from carla_birdeye_view.mask import (
     PixelDimensions,
     Coord,
     CroppingRect,
@@ -20,6 +20,8 @@ from birdview.mask import (
     RenderingWindow,
     Dimensions,
 )
+
+__all__ = ["BirdViewProducer", "DEFAULT_HEIGHT", "DEFAULT_WIDTH"]
 
 LOGGER = logging.getLogger(__name__)
 
