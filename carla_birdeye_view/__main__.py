@@ -3,7 +3,13 @@ import math
 import random
 
 from cv2 import cv2 as cv
-from carla_birdeye_view import BirdViewProducer, BirdView, DEFAULT_HEIGHT, DEFAULT_WIDTH
+from carla_birdeye_view import (
+    BirdViewProducer,
+    BirdView,
+    DEFAULT_HEIGHT,
+    DEFAULT_WIDTH,
+    BirdViewCropType,
+)
 from carla_birdeye_view.mask import PixelDimensions
 
 STUCK_SPEED_THRESHOLD_IN_KMH = 3
@@ -41,6 +47,7 @@ def main():
         client,
         PixelDimensions(width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT),
         pixels_per_meter=4,
+        crop_type=BirdViewCropType.FRONT_AND_REAR_AREA,
     )
     stuck_frames_count = 0
 

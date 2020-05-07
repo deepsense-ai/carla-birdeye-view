@@ -52,12 +52,13 @@ python -m carla_birdeye_view
 ### Basic code usage
 
 ```python
-from carla_birdeye_view import BirdViewProducer, PixelDimensions
+from carla_birdeye_view import BirdViewProducer, BirdViewCropType, PixelDimensions
 
 birdview_producer = BirdViewProducer(
     client,  # carla.Client
     target_size=PixelDimensions(width=150, height=336),
     pixels_per_meter=4,
+    crop_type=BirdViewCropType.FRONT_AND_REAR_AREA
 )
 
 # Input for your model - call it every simulation step

@@ -2,7 +2,7 @@ import carla
 import logging
 import numpy as np
 
-from enum import IntEnum
+from enum import IntEnum, auto, Enum
 from pathlib import Path
 from typing import List
 from filelock import FileLock
@@ -30,6 +30,11 @@ DEFAULT_WIDTH = 150  # its 37.5m when density is 4px/m
 
 BirdView = np.ndarray  # [np.uint8] with shape (level, y, x)
 RgbCanvas = np.ndarray  # [np.uint8] with shape (y, x, 3)
+
+
+class BirdViewCropType(Enum):
+    FRONT_AND_REAR_AREA = auto()  # Freeway mode
+    FRONT_AREA_ONLY = auto()  # Like in "Learning by Cheating"
 
 
 class BirdViewMasks(IntEnum):
@@ -125,12 +130,21 @@ class BirdViewProducer:
         client: carla.Client,
         target_size: PixelDimensions,
         pixels_per_meter: int = 4,
+        crop_type: BirdViewCropType=BirdViewCropType.FRONT_AND_REAR_AREA
     ) -> None:
         self.client = client
         self.target_size = target_size
-        self.pixels_per_meter = pixels_per_meter
+        self._pixels_per_meter = pixels_per_meter
+        self._crop_type = crop_type
 
-        rendering_square_size = round(square_fitting_rect_at_any_rotation(target_size))
+        if crop_type is BirdViewCropType.FRONT_AND_REAR_AREA:
+            rendering_square_size = round(square_fitting_rect_at_any_rotation(self.target_size))
+        elif crop_type is BirdViewCropType.FRONT_AREA_ONLY:
+            # We must keep rendering size from FRONT_AND_REAR_AREA (in order to avoid rotation issues)
+            enlarged_size = PixelDimensions(width=target_size.width, height=target_size.height * 2)
+            rendering_square_size = round(square_fitting_rect_at_any_rotation(enlarged_size))
+        else:
+            raise NotImplementedError
         self.rendering_area = PixelDimensions(
             width=rendering_square_size, height=rendering_square_size
         )
@@ -165,13 +179,16 @@ class BirdViewProducer:
         opendrive_content_hash = cache.generate_opendrive_content_hash(self._map)
         cache_filename = (
             f"{self._map.name}__"
-            f"px_per_meter={self.pixels_per_meter}__"
+            f"px_per_meter={self._pixels_per_meter}__"
             f"opendrive_hash={opendrive_content_hash}__"
             f"margin={mask.MAP_BOUNDARY_MARGIN}.npy"
         )
         return str(cache_dir / cache_filename)
 
-    def produce(self, agent_vehicle: carla.Actor) -> BirdView:
+    def produce(
+        self,
+        agent_vehicle: carla.Actor,
+    ) -> BirdView:
         all_actors = actors.query_all(world=self._world)
         segregated_actors = actors.segregate_by_type(actors=all_actors)
         agent_vehicle_loc = agent_vehicle.get_location()
@@ -179,6 +196,7 @@ class BirdViewProducer:
         # Reusing already generated static masks for whole map
         self.masks_generator.disable_local_rendering_mode()
         agent_global_px_pos = self.masks_generator.location_to_pixel(agent_vehicle_loc)
+
         cropping_rect = CroppingRect(
             x=int(agent_global_px_pos.x - self.rendering_area.width / 2),
             y=int(agent_global_px_pos.y - self.rendering_area.height / 2),
@@ -208,7 +226,7 @@ class BirdViewProducer:
         self.masks_generator.enable_local_rendering_mode(rendering_window)
         masks = self._render_actors_masks(agent_vehicle, segregated_actors, masks)
         cropped_masks = self.apply_agent_following_transformation_to_masks(
-            agent_vehicle, masks
+            agent_vehicle, masks,
         )
         ordered_indices = [mask.value for mask in BirdViewMasks.bottom_to_top()]
         return cropped_masks[ordered_indices]
@@ -254,7 +272,7 @@ class BirdViewProducer:
         return masks
 
     def apply_agent_following_transformation_to_masks(
-        self, agent_vehicle: carla.Actor, masks: np.ndarray
+        self, agent_vehicle: carla.Actor, masks: np.ndarray,
     ) -> np.ndarray:
         agent_transform = agent_vehicle.get_transform()
         angle = (
@@ -273,11 +291,18 @@ class BirdViewProducer:
         rotated = rotate(crop_with_centered_car, angle, center=rotation_center)
         rotated = np.transpose(rotated, axes=(2, 0, 1))
 
-        # Fine-grained crop, so that the agent is placed on the bottom
-        half_height = self.target_size.height // 2
         half_width = self.target_size.width // 2
-        vslice = slice(rotation_center.y - half_height, rotation_center.y + half_height)
         hslice = slice(rotation_center.x - half_width, rotation_center.x + half_width)
+
+        if self._crop_type is BirdViewCropType.FRONT_AREA_ONLY:
+            vslice = slice(rotation_center.y - self.target_size.height, rotation_center.y)
+        elif self._crop_type is BirdViewCropType.FRONT_AND_REAR_AREA:
+            half_height = self.target_size.height // 2
+            vslice = slice(
+                rotation_center.y - half_height, rotation_center.y + half_height
+            )
+        else:
+            raise NotImplementedError
         assert (
             vslice.start > 0 and hslice.start > 0
         ), "Trying to access negative indexes is not allowed, check for calculation errors!"
