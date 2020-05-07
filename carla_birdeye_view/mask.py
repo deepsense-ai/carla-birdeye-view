@@ -226,24 +226,25 @@ class MapMaskGenerator:
     def lanes_mask(self) -> Mask:
         canvas = self.make_empty_mask()
         for road_waypoints in self._each_road_waypoints:
-            if not road_waypoints[0].is_junction:
-                # Left Side
-                lanes.draw_lane_marking_single_side(
-                    canvas,
-                    road_waypoints,
-                    side=LaneSide.LEFT,
-                    location_to_pixel_func=self.location_to_pixel,
-                    color=COLOR_ON,
-                )
+            # if not road_waypoints[0].is_junction:
+            # NOTE This block was inside if statement - some junctions may not have proper lane markings drawn
+            # Left Side
+            lanes.draw_lane_marking_single_side(
+                canvas,
+                road_waypoints,
+                side=LaneSide.LEFT,
+                location_to_pixel_func=self.location_to_pixel,
+                color=COLOR_ON,
+            )
 
-                # Right Side
-                lanes.draw_lane_marking_single_side(
-                    canvas,
-                    road_waypoints,
-                    side=LaneSide.RIGHT,
-                    location_to_pixel_func=self.location_to_pixel,
-                    color=COLOR_ON,
-                )
+            # Right Side
+            lanes.draw_lane_marking_single_side(
+                canvas,
+                road_waypoints,
+                side=LaneSide.RIGHT,
+                location_to_pixel_func=self.location_to_pixel,
+                color=COLOR_ON,
+            )
         return canvas
 
     def agent_vehicle_mask(self, agent: carla.Actor) -> Mask:

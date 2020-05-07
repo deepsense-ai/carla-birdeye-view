@@ -7,7 +7,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="carla-birdeye-view",
-    version="1.0.14",
+    version="1.0.21",
     description="Bird-eye's view for CARLA simulator",
     keywords=["CARLA", "birdview", "bird-eye's view", "Reinforcement Learning", "RL"],
     long_description=README,
