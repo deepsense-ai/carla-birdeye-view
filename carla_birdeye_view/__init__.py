@@ -38,12 +38,13 @@ class BirdViewCropType(Enum):
 
 
 class BirdViewMasks(IntEnum):
-    PEDESTRIANS = 7
-    RED_LIGHTS = 6
-    YELLOW_LIGHTS = 5
-    GREEN_LIGHTS = 4
-    AGENT = 3
-    VEHICLES = 2
+    PEDESTRIANS = 8
+    RED_LIGHTS = 7
+    YELLOW_LIGHTS = 6
+    GREEN_LIGHTS = 5
+    AGENT = 4
+    VEHICLES = 3
+    CENTERLINES = 2
     LANES = 1
     ROAD = 0
 
@@ -63,6 +64,7 @@ RGB_BY_MASK = {
     BirdViewMasks.GREEN_LIGHTS: RGB.GREEN,
     BirdViewMasks.AGENT: RGB.CHAMELEON,
     BirdViewMasks.VEHICLES: RGB.ORANGE,
+    BirdViewMasks.CENTERLINES: RGB.CHOCOLATE,
     BirdViewMasks.LANES: RGB.WHITE,
     BirdViewMasks.ROAD: RGB.DIM_GRAY,
 }
@@ -161,6 +163,7 @@ class BirdViewProducer:
                 static_cache = np.load(cache_path)
                 self.full_road_cache = static_cache[0]
                 self.full_lanes_cache = static_cache[1]
+                self.full_centerlines_cache = static_cache[2]
             LOGGER.info(f"Loaded static layers from cache file: {cache_path}")
         else:
             LOGGER.warning(
@@ -168,7 +171,8 @@ class BirdViewProducer:
             )
             self.full_road_cache = self.masks_generator.road_mask()
             self.full_lanes_cache = self.masks_generator.lanes_mask()
-            static_cache = np.stack([self.full_road_cache, self.full_lanes_cache])
+            self.full_centerlines_cache = self.masks_generator.centerlines_mask()
+            static_cache = np.stack([self.full_road_cache, self.full_lanes_cache, self.full_centerlines_cache])
             with FileLock(f"{cache_path}.lock"):
                 np.save(cache_path, static_cache, allow_pickle=False)
             LOGGER.info(f"Saved static layers to cache file: {cache_path}")
@@ -216,6 +220,9 @@ class BirdViewProducer:
             cropping_rect.vslice, cropping_rect.hslice
         ]
         masks[BirdViewMasks.LANES.value] = self.full_lanes_cache[
+            cropping_rect.vslice, cropping_rect.hslice
+        ]
+        masks[BirdViewMasks.CENTERLINES.value] = self.full_centerlines_cache[
             cropping_rect.vslice, cropping_rect.hslice
         ]
 

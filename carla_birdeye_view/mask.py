@@ -247,6 +247,17 @@ class MapMaskGenerator:
             )
         return canvas
 
+    def centerlines_mask(self) -> Mask:
+        canvas = self.make_empty_mask()
+        for road_waypoints in self._each_road_waypoints:
+            polygon = [self.location_to_pixel(wp.transform.location) for wp in road_waypoints]
+            if len(polygon) > 2:
+                polygon = np.array([polygon], dtype=np.int32)
+                cv.polylines(
+                    img=canvas, pts=polygon, isClosed=False, color=COLOR_ON, thickness=1
+                )
+        return canvas
+
     def agent_vehicle_mask(self, agent: carla.Actor) -> Mask:
         canvas = self.make_empty_mask()
         bb = agent.bounding_box.extent
