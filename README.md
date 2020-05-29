@@ -8,9 +8,10 @@
 ## Bird-eye's view for CARLA
 
 
-Freeway-oriented shape | *[Learning By Cheating](https://arxiv.org/abs/1912.12294)*-like shape
-:-------------------------:|:-------------------------:
-![cruising](https://user-images.githubusercontent.com/64484917/80508193-04edde00-8978-11ea-956d-721e50a6a3c9.gif) | ![square-cruising](https://user-images.githubusercontent.com/64484917/80508095-e4258880-8977-11ea-8601-0e88942711ff.gif)
+Freeway-oriented shape | *[Learning By Cheating](https://arxiv.org/abs/1912.12294)*-like shape | Centerlines layer
+:-------------------------:|:-------------------------:|:---------------------------------------:
+![cruising](https://user-images.githubusercontent.com/64484917/80508193-04edde00-8978-11ea-956d-721e50a6a3c9.gif) | ![square-cruising](https://user-images.githubusercontent.com/64484917/80508095-e4258880-8977-11ea-8601-0e88942711ff.gif) | ![centerlines](https://user-images.githubusercontent.com/64484917/83240703-0fc7a880-a19a-11ea-9df0-74e340da8c3d.gif)
+
 
 (GIFs above present feature maps after applying `as_rgb()` function)
 
