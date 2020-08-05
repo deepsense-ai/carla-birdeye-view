@@ -48,6 +48,7 @@ def main():
         PixelDimensions(width=DEFAULT_WIDTH, height=DEFAULT_HEIGHT),
         pixels_per_meter=4,
         crop_type=BirdViewCropType.FRONT_AND_REAR_AREA,
+        render_lanes_on_junctions=False,
     )
     stuck_frames_count = 0
 

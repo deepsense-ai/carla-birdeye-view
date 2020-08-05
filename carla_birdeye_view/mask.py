@@ -76,7 +76,9 @@ class MapMaskGenerator:
     to become a regular RGB renderer (just change all `color` arguments to 3-element tuples)
     """
 
-    def __init__(self, client, pixels_per_meter: int) -> None:
+    def __init__(
+        self, client, pixels_per_meter: int, render_lanes_on_junctions: bool
+    ) -> None:
         self.client = client
         self.pixels_per_meter = pixels_per_meter
         self.rendering_window: Optional[RenderingWindow] = None
@@ -88,6 +90,7 @@ class MapMaskGenerator:
         self._map_boundaries = self._find_map_boundaries()
         self._each_road_waypoints = self._generate_road_waypoints()
         self._mask_size: PixelDimensions = self.calculate_mask_size()
+        self._render_lanes_on_junctions = render_lanes_on_junctions
 
     def _find_map_boundaries(self) -> MapBoundaries:
         """Find extreme locations on a map.
@@ -226,31 +229,32 @@ class MapMaskGenerator:
     def lanes_mask(self) -> Mask:
         canvas = self.make_empty_mask()
         for road_waypoints in self._each_road_waypoints:
-            # if not road_waypoints[0].is_junction:
-            # NOTE This block was inside if statement - some junctions may not have proper lane markings drawn
-            # Left Side
-            lanes.draw_lane_marking_single_side(
-                canvas,
-                road_waypoints,
-                side=LaneSide.LEFT,
-                location_to_pixel_func=self.location_to_pixel,
-                color=COLOR_ON,
-            )
+            if self._render_lanes_on_junctions or not road_waypoints[0].is_junction:
+                # Left Side
+                lanes.draw_lane_marking_single_side(
+                    canvas,
+                    road_waypoints,
+                    side=LaneSide.LEFT,
+                    location_to_pixel_func=self.location_to_pixel,
+                    color=COLOR_ON,
+                )
 
-            # Right Side
-            lanes.draw_lane_marking_single_side(
-                canvas,
-                road_waypoints,
-                side=LaneSide.RIGHT,
-                location_to_pixel_func=self.location_to_pixel,
-                color=COLOR_ON,
-            )
+                # Right Side
+                lanes.draw_lane_marking_single_side(
+                    canvas,
+                    road_waypoints,
+                    side=LaneSide.RIGHT,
+                    location_to_pixel_func=self.location_to_pixel,
+                    color=COLOR_ON,
+                )
         return canvas
 
     def centerlines_mask(self) -> Mask:
         canvas = self.make_empty_mask()
         for road_waypoints in self._each_road_waypoints:
-            polygon = [self.location_to_pixel(wp.transform.location) for wp in road_waypoints]
+            polygon = [
+                self.location_to_pixel(wp.transform.location) for wp in road_waypoints
+            ]
             if len(polygon) > 2:
                 polygon = np.array([polygon], dtype=np.int32)
                 cv.polylines(
