@@ -1,6 +1,7 @@
 import carla
 import logging
 import numpy as np
+import cv2.cv2 as cv
 
 from enum import IntEnum, auto, Enum
 from pathlib import Path
@@ -21,20 +22,21 @@ from carla_birdeye_view.mask import (
     Dimensions,
 )
 
-__all__ = ["BirdViewProducer", "DEFAULT_HEIGHT", "DEFAULT_WIDTH"]
-
 LOGGER = logging.getLogger(__name__)
 
-DEFAULT_HEIGHT = 336  # its 84m when density is 4px/m
-DEFAULT_WIDTH = 150  # its 37.5m when density is 4px/m
 
-BirdView = np.ndarray  # [np.uint8] with shape (level, y, x)
-RgbCanvas = np.ndarray  # [np.uint8] with shape (y, x, 3)
+BirdView = np.ndarray  # [np.uint8] with shape (height, width, channel)
+RgbCanvas = np.ndarray  # [np.uint8] with shape (height, width, 3)
 
 
 class BirdViewCropType(Enum):
     FRONT_AND_REAR_AREA = auto()  # Freeway mode
     FRONT_AREA_ONLY = auto()  # Like in "Learning by Cheating"
+
+
+DEFAULT_HEIGHT = 336  # its 84m when density is 4px/m
+DEFAULT_WIDTH = 150  # its 37.5m when density is 4px/m
+DEFAULT_CROP_TYPE = BirdViewCropType.FRONT_AND_REAR_AREA
 
 
 class BirdViewMasks(IntEnum):
@@ -69,11 +71,6 @@ RGB_BY_MASK = {
     BirdViewMasks.ROAD: RGB.DIM_GRAY,
 }
 
-BIRDVIEW_SHAPE_CHW = (len(RGB_BY_MASK), DEFAULT_HEIGHT, DEFAULT_WIDTH)
-BIRDVIEW_SHAPE_HWC = (DEFAULT_HEIGHT, DEFAULT_WIDTH, len(RGB_BY_MASK))
-
-import cv2.cv2 as cv2
-
 
 def rotate(image, angle, center=None, scale=1.0):
     assert image.dtype == np.uint8
@@ -88,13 +85,13 @@ def rotate(image, angle, center=None, scale=1.0):
         center = (w // 2, h // 2)
 
     # perform the rotation
-    M = cv2.getRotationMatrix2D(center, angle, scale)
-    rotated = cv2.warpAffine(
+    M = cv.getRotationMatrix2D(center, angle, scale)
+    rotated = cv.warpAffine(
         image,
         M,
         (w, h),
-        flags=cv2.INTER_NEAREST,
-        borderMode=cv2.BORDER_CONSTANT,
+        flags=cv.INTER_NEAREST,
+        borderMode=cv.BORDER_CONSTANT,
         borderValue=0,
     )
 
@@ -131,20 +128,27 @@ class BirdViewProducer:
         self,
         client: carla.Client,
         target_size: PixelDimensions,
+        render_lanes_on_junctions: bool,
         pixels_per_meter: int = 4,
-        crop_type: BirdViewCropType=BirdViewCropType.FRONT_AND_REAR_AREA
+        crop_type: BirdViewCropType = BirdViewCropType.FRONT_AND_REAR_AREA,
     ) -> None:
         self.client = client
         self.target_size = target_size
-        self._pixels_per_meter = pixels_per_meter
+        self.pixels_per_meter = pixels_per_meter
         self._crop_type = crop_type
 
         if crop_type is BirdViewCropType.FRONT_AND_REAR_AREA:
-            rendering_square_size = round(square_fitting_rect_at_any_rotation(self.target_size))
+            rendering_square_size = round(
+                square_fitting_rect_at_any_rotation(self.target_size)
+            )
         elif crop_type is BirdViewCropType.FRONT_AREA_ONLY:
             # We must keep rendering size from FRONT_AND_REAR_AREA (in order to avoid rotation issues)
-            enlarged_size = PixelDimensions(width=target_size.width, height=target_size.height * 2)
-            rendering_square_size = round(square_fitting_rect_at_any_rotation(enlarged_size))
+            enlarged_size = PixelDimensions(
+                width=target_size.width, height=target_size.height * 2
+            )
+            rendering_square_size = round(
+                square_fitting_rect_at_any_rotation(enlarged_size)
+            )
         else:
             raise NotImplementedError
         self.rendering_area = PixelDimensions(
@@ -153,46 +157,50 @@ class BirdViewProducer:
         self._world = client.get_world()
         self._map = self._world.get_map()
         self.masks_generator = MapMaskGenerator(
-            client, pixels_per_meter=pixels_per_meter
+            client,
+            pixels_per_meter=pixels_per_meter,
+            render_lanes_on_junctions=render_lanes_on_junctions,
         )
 
         cache_path = self.parametrized_cache_path()
-        if Path(cache_path).is_file():
-            LOGGER.info(f"Loading cache from {cache_path}")
-            with FileLock(f"{cache_path}.lock"):
+        with FileLock(f"{cache_path}.lock"):
+            if Path(cache_path).is_file():
+                LOGGER.info(f"Loading cache from {cache_path}")
                 static_cache = np.load(cache_path)
                 self.full_road_cache = static_cache[0]
                 self.full_lanes_cache = static_cache[1]
                 self.full_centerlines_cache = static_cache[2]
-            LOGGER.info(f"Loaded static layers from cache file: {cache_path}")
-        else:
-            LOGGER.warning(
-                f"Cache file does not exist, generating cache at {cache_path}"
-            )
-            self.full_road_cache = self.masks_generator.road_mask()
-            self.full_lanes_cache = self.masks_generator.lanes_mask()
-            self.full_centerlines_cache = self.masks_generator.centerlines_mask()
-            static_cache = np.stack([self.full_road_cache, self.full_lanes_cache, self.full_centerlines_cache])
-            with FileLock(f"{cache_path}.lock"):
+                LOGGER.info(f"Loaded static layers from cache file: {cache_path}")
+            else:
+                LOGGER.warning(
+                    f"Cache file does not exist, generating cache at {cache_path}"
+                )
+                self.full_road_cache = self.masks_generator.road_mask()
+                self.full_lanes_cache = self.masks_generator.lanes_mask()
+                self.full_centerlines_cache = self.masks_generator.centerlines_mask()
+                static_cache = np.stack(
+                    [
+                        self.full_road_cache,
+                        self.full_lanes_cache,
+                        self.full_centerlines_cache,
+                    ]
+                )
                 np.save(cache_path, static_cache, allow_pickle=False)
-            LOGGER.info(f"Saved static layers to cache file: {cache_path}")
+                LOGGER.info(f"Saved static layers to cache file: {cache_path}")
 
     def parametrized_cache_path(self) -> str:
-        cache_dir = Path("birdview_v2_cache")
+        cache_dir = Path("birdview_v3_cache")
         cache_dir.mkdir(parents=True, exist_ok=True)
         opendrive_content_hash = cache.generate_opendrive_content_hash(self._map)
         cache_filename = (
             f"{self._map.name}__"
-            f"px_per_meter={self._pixels_per_meter}__"
+            f"px_per_meter={self.pixels_per_meter}__"
             f"opendrive_hash={opendrive_content_hash}__"
             f"margin={mask.MAP_BOUNDARY_MARGIN}.npy"
         )
         return str(cache_dir / cache_filename)
 
-    def produce(
-        self,
-        agent_vehicle: carla.Actor,
-    ) -> BirdView:
+    def produce(self, agent_vehicle: carla.Actor) -> BirdView:
         all_actors = actors.query_all(world=self._world)
         segregated_actors = actors.segregate_by_type(actors=all_actors)
         agent_vehicle_loc = agent_vehicle.get_location()
@@ -233,20 +241,21 @@ class BirdViewProducer:
         self.masks_generator.enable_local_rendering_mode(rendering_window)
         masks = self._render_actors_masks(agent_vehicle, segregated_actors, masks)
         cropped_masks = self.apply_agent_following_transformation_to_masks(
-            agent_vehicle, masks,
+            agent_vehicle, masks
         )
         ordered_indices = [mask.value for mask in BirdViewMasks.bottom_to_top()]
-        return cropped_masks[ordered_indices]
+        return cropped_masks[:, :, ordered_indices]
 
     @staticmethod
     def as_rgb(birdview: BirdView) -> RgbCanvas:
-        _, h, w = birdview.shape
+        h, w, d = birdview.shape
+        assert d == len(BirdViewMasks)
         rgb_canvas = np.zeros(shape=(h, w, 3), dtype=np.uint8)
         nonzero_indices = lambda arr: arr == COLOR_ON
 
         for mask_type in BirdViewMasks.bottom_to_top():
             rgb_color = RGB_BY_MASK[mask_type]
-            mask = birdview[mask_type]
+            mask = birdview[:, :, mask_type]
             # If mask above contains 0, don't overwrite content of canvas (0 indicates transparency)
             rgb_canvas[nonzero_indices(mask)] = rgb_color
         return rgb_canvas
@@ -279,8 +288,9 @@ class BirdViewProducer:
         return masks
 
     def apply_agent_following_transformation_to_masks(
-        self, agent_vehicle: carla.Actor, masks: np.ndarray,
+        self, agent_vehicle: carla.Actor, masks: np.ndarray
     ) -> np.ndarray:
+        """Returns image of shape: height, width, channels"""
         agent_transform = agent_vehicle.get_transform()
         angle = (
             agent_transform.rotation.yaw + 90
@@ -296,13 +306,14 @@ class BirdViewProducer:
             crop_with_car_in_the_center, axes=(1, 2, 0)
         )
         rotated = rotate(crop_with_centered_car, angle, center=rotation_center)
-        rotated = np.transpose(rotated, axes=(2, 0, 1))
 
         half_width = self.target_size.width // 2
         hslice = slice(rotation_center.x - half_width, rotation_center.x + half_width)
 
         if self._crop_type is BirdViewCropType.FRONT_AREA_ONLY:
-            vslice = slice(rotation_center.y - self.target_size.height, rotation_center.y)
+            vslice = slice(
+                rotation_center.y - self.target_size.height, rotation_center.y
+            )
         elif self._crop_type is BirdViewCropType.FRONT_AND_REAR_AREA:
             half_height = self.target_size.height // 2
             vslice = slice(
@@ -313,5 +324,5 @@ class BirdViewProducer:
         assert (
             vslice.start > 0 and hslice.start > 0
         ), "Trying to access negative indexes is not allowed, check for calculation errors!"
-        car_on_the_bottom = rotated[:, vslice, hslice]
+        car_on_the_bottom = rotated[vslice, hslice]
         return car_on_the_bottom
