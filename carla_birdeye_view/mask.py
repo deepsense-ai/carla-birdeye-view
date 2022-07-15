@@ -1,4 +1,5 @@
 import carla
+import math
 import numpy as np
 
 from typing import NamedTuple, List, Tuple, Optional
@@ -314,6 +315,17 @@ class MapMaskGenerator:
             ]
 
             ped.get_transform().transform(corners)
+
+            # Handle the case where coordinates of the actor are invalid.
+            is_valid_ped = True
+            for loc in corners:
+                if math.isnan(loc.x) or math.isnan(loc.y):
+                    is_valid_ped = False
+
+            if not is_valid_ped:
+                continue
+
+
             corners = [self.location_to_pixel(loc) for loc in corners]
             cv.fillPoly(img=canvas, pts=np.int32([corners]), color=COLOR_ON)
         return canvas
